@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.ImageButton
 import android.widget.SearchView
 import android.widget.TextView
+import android.widget.Toast
 import com.bumptech.glide.Glide
 import hong.sy.todolist.databinding.ActivityMainBinding
 import kotlinx.coroutines.CoroutineScope
@@ -31,19 +32,19 @@ class MainActivity : AppCompatActivity() {
 
     private var search = ""
 
+    // 액티비티가 생성되면 가장 먼저 실행되는 메서드
+    // 액티비티 최초 실행 시에만 해야 할 작업
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         //setContentView(R.layout.activity_main)
 
-        // 자동 생성된 뷰 바인딩 클래스에서의 inflate라는 메서드를 활용해서
-        // 액티비티에서 사용할 바인딩 클래스의 인스턴스 생성
+        // 자동 생성된 뷰 바인딩 클래스에서의 inflate라는 메서드를 활용해서 액티비티에서 사용할 바인딩 클래스의 인스턴스 생성
         mBinding = ActivityMainBinding.inflate(layoutInflater)
 
-        // getRoot 메서드로 레이아웃 내부의 최상위 위치 뷰의
-        // 인스턴스를 활용하여 생성된 뷰를 액티비티에 표시 합니다.
+        // getRoot 메서드로 레이아웃 내부의 최상위 위치 뷰의 인스턴스를 활용하여 생성된 뷰를 액티비티에 표시
         setContentView(binding.root)
 
-        // 이제부터 binding 바인딩 변수를 활용하여 마음 껏 xml 파일 내의 뷰 id 접근이 가능해집니다.
+        // 이제부터 binding 바인딩 변수를 활용하여 마음 껏 xml 파일 내의 뷰 id 접근이 가능
 
         db = TodoDatabase.getInstance(applicationContext)!!
 
@@ -51,30 +52,6 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnAdd.setOnClickListener {
             moveToAddPage()
-        }
-
-        if(intent.hasExtra("title")) {
-            val title = intent.getStringExtra("title").toString()
-            val btnImg = R.drawable.non_check_box
-            val isDone = false
-
-            val r = Runnable {
-                db.todoDao().insert(Todo(title, btnImg, isDone))
-                val todoes = db.todoDao().getAll()
-
-                datas.clear()
-
-                for (todo in todoes) {
-                    datas.add(TodoListData(todo.id, todo.title, todo.btnImg, todo.isDone))
-               }
-
-                todoListAdpter.datas = datas
-            }
-
-            val thread = Thread(r)
-            thread.start()
-
-            todoListAdpter.notifyDataSetChanged()
         }
 
         todoListAdpter.setOnItemClickListener(object: TodoListAdapter.OnItemClickListner {
@@ -169,6 +146,27 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    // 액티비티가 일시정지 되었다가 돌아오는 경우 호출
+    override fun onResume() {
+        super.onResume()
+
+        if(intent.hasExtra("title")) {
+            val title = intent.getStringExtra("title").toString()
+            val btnImg = R.drawable.non_check_box
+            val isDone = false
+
+            val r = Runnable {
+                db.todoDao().insert(Todo(title, btnImg, isDone))
+            }
+
+            val thread = Thread(r)
+            thread.start()
+
+            refreshData()
+            todoListAdpter.notifyDataSetChanged()
+        }
+    }
+
     // 뒤로가기 한 번 누르면 검색창 닫히고, 한 번 더 누르면 뒤로 감
     override fun onBackPressed() {
         if(!binding.searchView.isIconified) {
@@ -178,6 +176,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // 앱을 종료하는 경우 호출
+    // onStop에서 아직 해제하지 못한 리소스 작업
     // 액티비티가 파괴될 때
     override fun onDestroy() {
         // onDestory 에서 binding class 인스턴스 참조를 정리해 줘야 함
